@@ -3,22 +3,28 @@ import numpy as np
 from scipy.stats import norm
 from scipy.interpolate import interp1d
 from numpy.polynomial.hermite import hermgauss
+import os
 
 class GaussianCopulaPricer:
-    def __init__(self, discount_file, constituent_file):
+    def __init__(self, data_folder, discount_file, constituent_file):
+        self.data_folder = data_folder
         self.load_data(discount_file, constituent_file)
         self.setup_integration()
         
     def load_data(self, discount_file, constituent_file):
         """Loads curve data and prepares interpolation functions."""
+        
+        discount_path = os.path.join(self.data_folder, discount_file)
+        constituent_path = os.path.join(self.data_folder, constituent_file)
+
         # 1. Discount Curve
-        df_disc = pd.read_csv(discount_file)
+        df_disc = pd.read_csv(discount_path)
         # Log-linear interpolation for Discount Factors
         self.df_interp = interp1d(df_disc['Tenor'], np.log(df_disc['DF']), 
                                   kind='linear', fill_value="extrapolate")
         
         # 2. Constituent Curves (Adjusted)
-        self.const_df = pd.read_csv(constituent_file)
+        self.const_df = pd.read_csv(constituent_path)
         self.recoveries = self.const_df['Recovery'].values
         self.n_constituents = len(self.const_df)
         
@@ -284,7 +290,7 @@ if __name__ == "__main__":
     # Need files to run this, wrapping in try-except for robust local testing
     try:
         # Initialize once for speed in a loop
-        pricer = GaussianCopulaPricer('discount_curve.csv', 'adjusted_constituent_survival_curves.csv')
+        pricer = GaussianCopulaPricer('outdata/', 'discount_curve.csv', 'adjusted_constituent_survival_curves.csv')
         
         price_mz = pricer.price_tranche(tranche_3_7, rho=0.4)
         print(f"3-7% Tranche Spread (rho=0.4): {price_mz:.2f} bps")

@@ -3,20 +3,23 @@ import numpy as np
 from scipy.optimize import brentq
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import os
 
 # Import the Pricer class from the previous file
 # Ensure gaussian_copula_pricing.py is in the same folder
 
-from gaussian_copula_pricing import GaussianCopulaPricer
+from gaussian_3_copula_pricing import GaussianCopulaPricer
 
+data_in = 'indata/'
+res = 'res/'
 
 def calibrate_base_correlations():
     print("Loading Market Data...")
-    cdx_df = pd.read_csv('CDX.NA.IG.45.csv')
+    cdx_df = pd.read_csv(f'{data_in}CDX.NA.IG.45.csv')
     
     # Initialize Pricer
     # We use the adjusted curves from Step 2
-    pricer = GaussianCopulaPricer('discount_curve.csv', 'adjusted_constituent_survival_curves.csv')
+    pricer = GaussianCopulaPricer('outdata/', 'discount_curve.csv', 'adjusted_constituent_survival_curves.csv')
 
     # Define Tranche Structure (Attachment, Detachment)
     # We map the CSV columns to these detachments
@@ -231,7 +234,7 @@ def calibrate_base_correlations():
 
     # Save Results
     res_df = pd.DataFrame(results)
-    res_df.to_csv('base_correlations.csv', index=False)
+    res_df.to_csv(os.path.join(res,'base_correlations.csv'), index=False)
     print("\nSaved 'base_correlations.csv'")
     
     # Plot Surface
@@ -252,7 +255,7 @@ def calibrate_base_correlations():
     ax.set_zlabel('Correlation')
     fig.colorbar(surf, shrink=0.5, aspect=5)
     
-    plt.savefig('base_correlation_surface.png')
+    plt.savefig(os.path.join(res,'base_correlation_surface.png'))
     print("Saved 'base_correlation_surface.png'")
     plt.show()
 

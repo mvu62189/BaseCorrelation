@@ -3,6 +3,7 @@ import numpy as np
 import scipy.interpolate
 from scipy.optimize import brentq
 import matplotlib.pyplot as plt
+import os
 
 # ==========================================
 # 1. Load Data and Helper Functions
@@ -19,11 +20,15 @@ def parse_tenor(tenor):
             return float(tenor.replace('Y', ''))
     return float(tenor)
 
+data_in = 'indata/'
+data_out = 'outdata/'
+plot = 'plot/'
+
 # Load datasets
 print("Loading data...")
-ois_df = pd.read_csv('OIS_CURVE.csv')
-constituents_df = pd.read_csv('125constituents.csv')
-cdx_df = pd.read_csv('CDX.NA.IG.45.csv')
+ois_df = pd.read_csv(f'{data_in}OIS_CURVE.csv')
+constituents_df = pd.read_csv(f'{data_in}125constituents.csv')
+cdx_df = pd.read_csv(f'{data_in}CDX.NA.IG.45.csv')
 
 # ==========================================
 # 2. Build Discount Curve from OIS
@@ -46,7 +51,7 @@ def get_discount_factor(t):
 # Save Discount Curve for target tenors
 target_tenors = [1, 2, 3, 5, 7, 10]
 df_output = pd.DataFrame({'Tenor': target_tenors, 'DF': get_discount_factor(target_tenors)})
-df_output.to_csv('discount_curve.csv', index=False)
+df_output.to_csv(os.path.join(data_out, 'discount_curve.csv'), index=False)
 print("Saved discount_curve.csv")
 
 # ==========================================
@@ -185,7 +190,7 @@ index_spreads = [x[1] for x in cdx_data]
 index_lambdas, index_curve_points = bootstrap_curve(index_tenors, index_spreads, 0.4, get_discount_factor)
 index_surv_probs = get_survival_prob(target_tenors, index_curve_points)
 
-pd.DataFrame({'Tenor': target_tenors, 'Survival': index_surv_probs}).to_csv('index_survival_curve.csv', index=False)
+pd.DataFrame({'Tenor': target_tenors, 'Survival': index_surv_probs}).to_csv(os.path.join(data_out, 'index_survival_curve.csv'), index=False)
 print("Saved index_survival_curve.csv")
 
 # ==========================================
@@ -220,7 +225,7 @@ for idx, row in constituents_df.iterrows():
         print(f"Error bootstrapping {row['Company']}: {e}")
 
 const_surv_df = pd.DataFrame(results)
-const_surv_df.to_csv('constituent_survival_curves.csv', index=False)
+const_surv_df.to_csv(os.path.join(data_out, 'constituent_survival_curves.csv'), index=False)
 print("Saved constituent_survival_curves.csv")
 
 # ==========================================
@@ -245,7 +250,7 @@ pd.DataFrame({
     'Tenor': target_tenors,
     'Index_Loss': index_loss,
     'Avg_Constituent_Loss': loss_data
-}).to_csv('loss_curves.csv', index=False)
+}).to_csv(os.path.join(data_out,'loss_curves.csv'), index=False)
 
 # Plot
 plt.figure(figsize=(10, 6))
@@ -256,6 +261,6 @@ plt.xlabel('Tenor (Years)')
 plt.ylabel('Expected Loss')
 plt.legend()
 plt.grid(True)
-plt.savefig('loss_comparison_plot.png')
+plt.savefig(os.path.join(plot,'loss_comparison_plot.png'))
 plt.show()
 print("Process Complete. All files saved.")

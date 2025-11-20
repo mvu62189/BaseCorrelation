@@ -2,13 +2,16 @@ import pandas as pd
 import numpy as np
 from scipy.optimize import brentq
 import matplotlib.pyplot as plt
+import os
 
+inoutdir = 'outdata/' # take input from previous operations and output to the same dir
+plot = 'plot'
 def calculate_basis_adjustment():
     print("Loading data...")
     # Load the inputs generated from the previous step
     try:
-        loss_df = pd.read_csv('loss_curves.csv')
-        const_df = pd.read_csv('constituent_survival_curves.csv')
+        loss_df = pd.read_csv(f'{inoutdir}loss_curves.csv')
+        const_df = pd.read_csv(f'{inoutdir}constituent_survival_curves.csv')
     except FileNotFoundError as e:
         print(f"Error: {e}")
         print("Please ensure 'loss_curves.csv' and 'constituent_survival_curves.csv' are in the current directory.")
@@ -75,8 +78,8 @@ def calculate_basis_adjustment():
 
     # Save Outputs
     print("\nSaving outputs...")
-    beta_df.to_csv('beta_curve.csv', index=False)
-    adjusted_data.to_csv('adjusted_constituent_survival_curves.csv', index=False)
+    beta_df.to_csv(os.path.join(inoutdir, 'beta_curve.csv'), index=False)
+    adjusted_data.to_csv(os.path.join(inoutdir, 'adjusted_constituent_survival_curves.csv'), index=False)
     print(" - beta_curve.csv")
     print(" - adjusted_constituent_survival_curves.csv")
 
@@ -87,7 +90,7 @@ def calculate_basis_adjustment():
     plt.xlabel('Tenor (Years)')
     plt.ylabel('Beta')
     plt.grid(True)
-    plt.savefig('beta_curve_plot.png')
+    plt.savefig(os.path.join(plot, 'beta_curve_plot.png'))
     print(" - beta_curve_plot.png")
     
     # Verify results
