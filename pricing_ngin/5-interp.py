@@ -26,12 +26,16 @@ def generate_continuous_smile():
         x_known = x_known[idx]
         y_known = y_known[idx]
 
+        if len(x_known) < 2:
+            print(f"Skipping Tenor {tenor}Y: Not enough data points to interpolate.")
+            continue
+
         # Create Continuous Function (Smile)
         # PchipInterpolator is often preferred for Base Corr to avoid "swinging" arbitrage
         smile_func = PchipInterpolator(x_known, y_known, extrapolate=True)
         
-        # 4. Resample on fine grid (continuous space)
-        x_fine = np.linspace(0.03, 1.0, 100) # From 3% to 100%
+        # 4. Resample on fine grid (continuous space every 0.5%)
+        x_fine = np.round(np.arange(0.005, .155, 0.005), 3)
         y_fine = smile_func(x_fine)
         
         # Store for output
