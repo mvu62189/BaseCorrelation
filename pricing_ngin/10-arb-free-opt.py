@@ -9,8 +9,8 @@ def arb_free_optimization(tenor=5.0):
     print(f"Running Arbitrage-Free Optimization for {int(tenor)}Y Tenor...")
     
     # 1. Load Data & Initialize Pricer
-    base_df = pd.read_csv('../res/base_correlations.csv')
-    pricer = GaussianCopulaPricer('../outdata/', 'discount_curve.csv', 'adjusted_constituent_survival_curves.csv')
+    base_df = pd.read_csv('res/base_correlations.csv')
+    pricer = GaussianCopulaPricer('outdata/', 'discount_curve.csv', 'adjusted_constituent_survival_curves.csv')
     
     # Get Market Knots for this Tenor
     subset = base_df[base_df['Tenor'] == tenor].sort_values('Detachment')
@@ -133,7 +133,7 @@ def arb_free_optimization(tenor=5.0):
     plt.ylabel('Correlation')
     plt.legend()
     plt.grid(True)
-    plt.savefig('../res/arb_free_optimization.png')
+    plt.savefig('res/arb_free_optimization.png')
     print("Saved plot to res/arb_free_optimization.png")
     
     # Plot Expected Loss (Arbitrage Check)
@@ -163,7 +163,7 @@ def arb_free_optimization(tenor=5.0):
     plt.ylabel('Expected Loss (PV)')
     plt.legend()
     plt.grid(True)
-    plt.savefig('../res/arb_free_el_check.png')
+    plt.savefig('res/arb_free_el_check.png')
     print("Saved EL check to res/arb_free_el_check.png")
 
 if __name__ == "__main__":
