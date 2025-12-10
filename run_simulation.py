@@ -7,14 +7,14 @@ from pricing_ngin.delta_hedge import DeltaDV01Calculator
 
 # --- CONFIGURATION ---
 SIMULATION_DATES = [
-    '1025', '1119', '1120', '1121',
+    '1119', '1120', '1121',
     '1125', '1126', '1201', '1203'
 ]
 
 # BESPOKE TRANCHE DEFINITION (5Y, 4-6%)
 TR_TENOR = 5.0 
-TR_ATTACH = 0.04  
-TR_DETACH = 0.06  
+TR_ATTACH = 0.03  
+TR_DETACH = 0.07  
 TR_NAME = f"{TR_ATTACH*100:.1f}-{TR_DETACH*100:.1f}%"
 TR_NOTIONAL = 10_000_000 
 
