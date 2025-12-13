@@ -148,7 +148,7 @@ class LOOCV_Validator:
     # ----------------------------------------------------------------
     # TEST 2: Hide Single Point (Restricted Point LOOCV)
     # ----------------------------------------------------------------
-    def run_point_loocv(self):
+    def run_point_loocv_old(self):
         print(f"\n--- Running Restricted Point-Based LOOCV (Middle Tranches: {self.testable_detachments}) ---")
         
         results = []
@@ -187,6 +187,124 @@ class LOOCV_Validator:
         print(f"MAE Time Interp:  {mae_time:.4f}")
         return res_df
 
+    def run_point_loocv(self):
+        print(f"\n--- Running Restricted Point-Based LOOCV (Middle Tranches: {self.testable_detachments}) ---")
+        
+        results = []
+        candidates = self.base_df[self.base_df['Detachment'].isin(self.testable_detachments)]
+        
+        print(f"{'Tenor':<5} {'Tranche':<8} | {'Act Rho':<7} {'Sm Rho':<7} | {'Mkt Px':<8} {'Sm Px':<8} {'Diff':<8}")
+        
+        for idx, row in candidates.iterrows():
+            t = row['Tenor']
+            d = row['Detachment'] # This is the Detachment of the tranche we are testing
+            actual_rho = row['Correlation']
+            
+            # Get Tranche Info (Att, Type, etc)
+            if d not in self.tranche_map: continue
+            att, q_type, col_name, running_bps = self.tranche_map[d]
+            
+            # 1. Predictions
+            train_smile = self.base_df[(self.base_df['Tenor'] == t) & (self.base_df['Detachment'] != d)]
+            pred_smile = self.predict_rho_smile(t, d, train_smile)
+            
+            train_time = self.base_df[(self.base_df['Detachment'] == d) & (self.base_df['Tenor'] != t)]
+            pred_time = self.predict_rho_time(t, d, train_time)
+            
+            # 2. Get Market Price
+            mkt_row = self.market_df[self.market_df['Tenor'] == f'{int(t)}Y']
+            if mkt_row.empty: continue
+            mkt_val = mkt_row.iloc[0][col_name]
+            
+            # 3. Get Attachment Correlation (Actual)
+            # We assume we know the attachment point correlation perfectly, we are only testing the detachment sensitivity
+            if att == 0.0:
+                rho_att = 0.0 # Dummy, not used for 0 attachment
+            else:
+                att_row = self.base_df[(self.base_df['Tenor'] == t) & (self.base_df['Detachment'] == att)]
+                if att_row.empty: continue # Can't price if we lack the attachment rho
+                rho_att = att_row.iloc[0]['Correlation']
+
+            # 4. Reprice using Smile Prediction
+            if np.isnan(pred_smile):
+                smile_px = np.nan
+            else:
+                smile_px = self.calculate_model_price(t, att, d, rho_att, pred_smile, running_bps, q_type)
+            
+            # 5. Reprice using Time Prediction
+            if np.isnan(pred_time):
+                time_px = np.nan
+            else:
+                time_px = self.calculate_model_price(t, att, d, rho_att, pred_time, running_bps, q_type)
+
+            smile_diff = smile_px - mkt_val if not np.isnan(smile_px) else np.nan
+            
+            # Print row for console
+            lbl = f"{att*100:g}-{d*100:g}%"
+            print(f"{t:<5} {lbl:<8} | {actual_rho:.4f}  {pred_smile:.4f}  | {mkt_val:<8.2f} {smile_px:<8.2f} {smile_diff:<8.2f}")
+
+            results.append({
+                'Tenor': t, 'Detachment': d, 
+                'Actual_Rho': actual_rho, 'Smile_Pred': pred_smile, 'Time_Pred': pred_time,
+                'Mkt_Price': mkt_val, 'Smile_Price': smile_px, 'Time_Price': time_px,
+                'Smile_Px_Diff': smile_diff, 'Time_Px_Diff': time_px - mkt_val
+            })
+            
+        res_df = pd.DataFrame(results)
+        
+        if not res_df.empty:
+            mae_smile = res_df['Smile_Px_Diff'].abs().mean()
+            mae_time = res_df['Time_Px_Diff'].abs().mean()
+            print(f"\nMAE Price Error (Smile Interp): {mae_smile:.2f}")
+            print(f"MAE Price Error (Time Interp):  {mae_time:.2f}")
+            
+        return res_df
+    
+    def calculate_model_price(self, tenor, att, det, rho_att, rho_det, running_bps, quote_type):
+        """
+        Helper: Calculates standard tranche price (Spread or Upfront) given two correlations.
+        Uses Base Correlation logic: Tranche[A,D] = Base[0,D] - Base[0,A]
+        """
+        # 1. Calculate PV for Attachment Point (0 - Att)
+        # Note: If Att == 0, PV is 0
+        if att == 0.0:
+            pv_prot_att = 0.0
+            pv_prem_att = 0.0
+        else:
+            # Protection
+            t_prot_a = {'Attachment':0.0, 'Detachment':att, 'Maturity':tenor, 'Spread_bps':0, 'Type':'Upfront'}
+            pv_prot_att = self.pricer.price_tranche(t_prot_a, rho_att) * att
+            
+            # Premium (Annuity)
+            t_prem_a = {'Attachment':0.0, 'Detachment':att, 'Maturity':tenor, 'Spread_bps':100, 'Type':'Upfront'}
+            upfront_100_a = self.pricer.price_tranche(t_prem_a, rho_att)
+            pv_prem_att = (pv_prot_att - upfront_100_a * att) / 0.01
+
+        # 2. Calculate PV for Detachment Point (0 - Det) using PREDICTED Rho
+        # Protection
+        t_prot_d = {'Attachment':0.0, 'Detachment':det, 'Maturity':tenor, 'Spread_bps':0, 'Type':'Upfront'}
+        pv_prot_det = self.pricer.price_tranche(t_prot_d, rho_det) * det
+        
+        # Premium
+        t_prem_d = {'Attachment':0.0, 'Detachment':det, 'Maturity':tenor, 'Spread_bps':100, 'Type':'Upfront'}
+        upfront_100_d = self.pricer.price_tranche(t_prem_d, rho_det)
+        pv_prem_det = (pv_prot_det - upfront_100_d * det) / 0.01
+        
+        # 3. Combine to get Tranche PV
+        leg_prot = pv_prot_det - pv_prot_att
+        leg_prem = pv_prem_det - pv_prem_att
+        width = det - att
+
+        if quote_type == 'Upfront':
+            # Result in Points (e.g. 40.5)
+            # Upfront = (Prot - Coupon*Prem) / Notional
+            return (leg_prot - (running_bps/10000)*leg_prem) / width * 100
+        else:
+            # Result in Basis Points (e.g. 300.5)
+            # Spread = Prot / Prem
+            if leg_prem < 1e-9: return 0.0
+            return (leg_prot / leg_prem) * 10000
+        
     # ----------------------------------------------------------------
     # VISUALIZATION: Aggregated 6-Panel Plot
     # ----------------------------------------------------------------
